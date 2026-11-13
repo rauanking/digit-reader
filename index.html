@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Digit Reader</title>
+<style>
+:root {
+  --bg: #f6f7f9; --card: #ffffff; --ink: #18202b; --muted: #5d6b7a; --line: #e2e6eb;
+  --accent: #2f6fb3; --accent-soft: #e5eef8; --warm: #d9762b; --good: #2e8b57; --bad: #c0392b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161d; --card: #19202a; --ink: #e8edf3; --muted: #9aa8b7; --line: #2a3441;
+    --accent: #6aa7e8; --accent-soft: #1f2d3d; --warm: #f0a060; --good: #5cc28a; --bad: #ef6f61;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161d; --card: #19202a; --ink: #e8edf3; --muted: #9aa8b7; --line: #2a3441;
+  --accent: #6aa7e8; --accent-soft: #1f2d3d; --warm: #f0a060; --good: #5cc28a; --bad: #ef6f61;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif; }
+nav { position: sticky; top: 0; z-index: 5; background: var(--card); border-bottom: 1px solid var(--line); }
+nav .in { max-width: 1080px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 18px; overflow-x: auto; white-space: nowrap; font-size: 15px; }
+nav a { color: var(--muted); text-decoration: none; }
+nav a:hover { color: var(--accent); }
+nav b { color: var(--ink); margin-right: 8px; }
+section { max-width: 1080px; margin: 0 auto; padding: 56px 16px 8px; }
+h1 { font-size: clamp(32px, 5vw, 52px); line-height: 1.1; margin: 0 0 14px; }
+h2 { font-size: 28px; margin: 0 0 6px; }
+.kicker { color: var(--accent); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; font-size: 14px; margin-bottom: 6px; }
+.lead { font-size: 20px; color: var(--muted); max-width: 760px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 20px; }
+.stat b { display: block; font-size: 34px; line-height: 1.1; }
+.stat span { color: var(--muted); font-size: 15px; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.best td { background: var(--accent-soft); font-weight: 600; }
+.scroll { overflow-x: auto; }
+.bars { display: grid; gap: 8px; margin-top: 16px; }
+.bar { display: grid; grid-template-columns: 210px 1fr 70px; gap: 10px; align-items: center; font-size: 14px; }
+.bar .track { background: var(--accent-soft); border-radius: 6px; height: 22px; overflow: hidden; }
+.bar .fill { height: 100%; background: var(--accent); border-radius: 6px; }
+.bar.best .fill { background: var(--warm); }
+.steps { counter-reset: s; list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 12px; }
+.steps li { counter-increment: s; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 14px 56px; position: relative; }
+.steps li::before { content: counter(s); position: absolute; left: 16px; top: 14px; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+.samples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.samples figure { margin: 0; text-align: center; font-size: 13px; color: var(--muted); }
+.samples canvas { width: 56px; height: 56px; image-rendering: pixelated; border-radius: 6px; background: #000; display: block; }
+img.fig { width: 100%; border-radius: 12px; border: 1px solid var(--line); background: #fff; margin-top: 16px; }
+.demo { display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start; margin-top: 20px; }
+#pad { width: 280px; height: 280px; background: #000; border-radius: 12px; touch-action: none; cursor: crosshair; display: block; }
+.btns { display: flex; gap: 10px; margin-top: 10px; }
+button { font: inherit; font-size: 15px; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.guess { font-size: 64px; font-weight: 700; line-height: 1; }
+.probs { display: grid; gap: 5px; margin-top: 12px; }
+.prob { display: grid; grid-template-columns: 18px 1fr 52px; gap: 8px; align-items: center; font-size: 14px; font-variant-numeric: tabular-nums; }
+.prob .track { background: var(--accent-soft); height: 14px; border-radius: 4px; overflow: hidden; }
+.prob .fill { height: 100%; background: var(--accent); }
+.prob.top .fill { background: var(--warm); }
+#mini { width: 84px; height: 84px; image-rendering: pixelated; border-radius: 6px; background: #000; }
+.note { color: var(--muted); font-size: 14px; }
+footer { max-width: 1080px; margin: 40px auto 0; padding: 24px 16px 48px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
+@media (max-width: 720px) {
+  .demo { grid-template-columns: 1fr; }
+  .bar { grid-template-columns: 120px 1fr 62px; }
+  section { padding-top: 40px; }
+}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <b>Digit Reader</b>
+  <a href="#problem">Problem</a><a href="#data">Data</a><a href="#method">Method</a>
+  <a href="#results">Results</a><a href="#errors">Errors</a><a href="#demo">Live demo</a><a href="#conclusion">Conclusion</a>
+</div></nav>
+
+<section id="top">
+  <div class="kicker">ICT Assignment #2 · Computer Vision · Option A</div>
+  <h1>Teaching a computer to read handwritten digits</h1>
+  <p class="lead">Six models on the open MNIST dataset. I change one thing at a time and measure how many digits each model gets wrong.</p>
+  <div class="grid" id="headline"></div>
+  <p class="note">Bolat Rauan · Stream 2, Practice 2</p>
+</section>
+
+<section id="problem">
+  <div class="kicker">Problem</div>
+  <h2>Why read digits automatically?</h2>
+  <p>Handwritten numbers are everywhere: postal codes, bank forms, exam answer sheets, delivery receipts. Typing them in by hand is slow and error-prone. A model that reads digits reliably saves time, but every mistake can mean a wrong amount or a wrong address. So the question is:</p>
+  <p class="lead"><b>Which model changes actually reduce mistakes, and by how much?</b></p>
+</section>
+
+<section id="data">
+  <div class="kicker">Dataset</div>
+  <h2>MNIST: 70 000 handwritten digits</h2>
+  <div class="grid">
+    <div class="card stat"><b>60 000</b><span>training images (10% held out for validation)</span></div>
+    <div class="card stat"><b>10 000</b><span>test images, never used for training</span></div>
+    <div class="card stat"><b>28 × 28</b><span>grayscale pixels, digits 0–9</span></div>
+  </div>
+  <div class="samples" id="samples"></div>
+</section>
+
+<section id="method">
+  <div class="kicker">Method</div>
+  <h2>One change per experiment</h2>
+  <p>All models use the same data split, the same random seed, 5 epochs and batch size 128. Only the listed change differs, so the effect of that change is clear.</p>
+  <ol class="steps">
+    <li><b>Logistic regression.</b> Baseline: every pixel gets a weight. It cannot combine pixels into shapes.</li>
+    <li><b>+ Hidden layer (MLP).</b> 128 ReLU neurons learn combinations of pixels, such as parts of strokes.</li>
+    <li><b>+ Convolution.</b> Small 3×3 filters slide over the image and detect edges and curves anywhere. Trained with plain SGD.</li>
+    <li><b>SGD → Adam.</b> Same network with an adaptive optimizer that adjusts the step size for each weight.</li>
+    <li><b>+ Second conv layer.</b> The first layer finds edges, and the second combines them into loops and corners.</li>
+    <li><b>+ Dropout 0.3.</b> During training, 30% of neurons are switched off at random, so the network cannot memorise and must generalise.</li>
+  </ol>
+</section>
+
+<section id="results">
+  <div class="kicker">Results</div>
+  <h2>Accuracy on 10 000 unseen test images</h2>
+  <div class="card scroll" style="margin-top:16px">
+    <table id="table"><thead><tr>
+      <th>Experiment</th><th>Change</th><th class="num">Parameters</th><th class="num">Train acc</th>
+      <th class="num">Test acc</th><th class="num">Mistakes</th><th class="num">Time</th>
+    </tr></thead><tbody></tbody></table>
+  </div>
+  <div class="bars" id="bars"></div>
+  <img class="fig" src="results.png" alt="Test accuracy bars and validation learning curves for the six experiments">
+</section>
+
+<section id="errors">
+  <div class="kicker">Error analysis</div>
+  <h2>What does the best model still get wrong?</h2>
+  <p id="errtext"></p>
+  <img class="fig" src="errors.png" alt="Confusion matrix and examples of misclassified digits for the final model">
+</section>
+
+<section id="demo">
+  <div class="kicker">Live demo · MVP</div>
+  <h2>Draw a digit</h2>
+  <p>The final CNN runs right here in the browser, with the weights exported from Keras. Draw one digit, large and centred.</p>
+  <div class="demo">
+    <div>
+      <canvas id="pad" width="280" height="280" aria-label="Drawing area"></canvas>
+      <div class="btns"><button class="primary" id="clear">Clear</button></div>
+      <p class="note">What the model sees (28×28):</p>
+      <canvas id="mini" width="28" height="28"></canvas>
+    </div>
+    <div class="card">
+      <div class="note">Prediction</div>
+      <div class="guess" id="guess">–</div>
+      <div class="note" id="conf">Draw something to start</div>
+      <div class="probs" id="probs"></div>
+    </div>
+  </div>
+</section>
+
+<section id="conclusion">
+  <div class="kicker">Conclusion</div>
+  <h2>What I learned</h2>
+  <ul id="concl"></ul>
+  <h2 style="margin-top:28px">Limitations and next steps</h2>
+  <ul>
+    <li>MNIST digits are clean and centred. Real forms are noisier, so the next step is data augmentation (rotation, shift, noise) or real scanned samples.</li>
+    <li>5 epochs only. More epochs with early stopping, and batch normalisation, could push accuracy higher.</li>
+    <li>Each result comes from one run with one seed. Repeating with several seeds would show how stable the differences are.</li>
+  </ul>
+</section>
+
+<footer>Dataset: MNIST (LeCun, Cortes & Burges), loaded through <code>keras.datasets.mnist</code>. Models: TensorFlow / Keras. The code is in <code>ICT_A2_MNIST.ipynb</code>.</footer>
+
+<script src="results_data.js"></script>
+<script src="model_weights.js"></script>
+<script>
+const R = window.RESULTS_DATA;
+const pct = x => (x * 100).toFixed(2) + "%";
+
+// ---------- headline + table + bars
+(function () {
+  const rs = R.results, base = rs[0], best = rs[rs.length - 1];
+  const fewer = Math.round((1 - best.errors / base.errors) * 100);
+  document.getElementById("headline").innerHTML = `
+    <div class="card stat"><b>${pct(base.test_acc)}</b><span>baseline: logistic regression</span></div>
+    <div class="card stat"><b>${pct(best.test_acc)}</b><span>final CNN with dropout</span></div>
+    <div class="card stat"><b>${base.errors} → ${best.errors}</b><span>mistakes on 10 000 test digits (${fewer}% fewer)</span></div>`;
+  const tb = document.querySelector("#table tbody");
+  const maxAcc = Math.max(...rs.map(r => r.test_acc));
+  rs.forEach(r => {
+    const tr = document.createElement("tr");
+    if (r.test_acc === maxAcc) tr.className = "best";
+    tr.innerHTML = `<td>${r.model}</td><td>${r.change}</td><td class="num">${r.params.toLocaleString("en")}</td>
+      <td class="num">${pct(r.train_acc)}</td><td class="num">${pct(r.test_acc)}</td>
+      <td class="num">${r.errors}</td><td class="num">${r.seconds.toFixed(0)} s</td>`;
+    tb.appendChild(tr);
+  });
+  const lo = 90;
+  document.getElementById("bars").innerHTML = rs.map(r => `
+    <div class="bar ${r.test_acc === maxAcc ? "best" : ""}"><span>${r.model}</span>
+      <div class="track"><div class="fill" style="width:${((r.test_acc * 100 - lo) / (100 - lo) * 100).toFixed(1)}%"></div></div>
+      <b>${pct(r.test_acc)}</b></div>`).join("") + `<p class="note">Bars start at 90% so the differences are visible.</p>`;
+  document.getElementById("errtext").innerHTML = R.error_text;
+  document.getElementById("concl").innerHTML = R.conclusions.map(c => `<li>${c}</li>`).join("");
+})();
+
+// ---------- sample digits
+(function () {
+  const box = document.getElementById("samples");
+  R.samples.forEach(s => {
+    const f = document.createElement("figure"), c = document.createElement("canvas");
+    c.width = c.height = 28;
+    const ctx = c.getContext("2d"), im = ctx.createImageData(28, 28);
+    s.pixels.forEach((v, i) => { im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; });
+    ctx.putImageData(im, 0, 0);
+    f.appendChild(c);
+    f.insertAdjacentHTML("beforeend", `<figcaption>${s.label}</figcaption>`);
+    box.appendChild(f);
+  });
+})();
+
+// ---------- CNN forward pass in plain JavaScript (same layers as the Keras model)
+const W = Object.values(window.MODEL_WEIGHTS);          // [conv1, conv2, dense1, dense2] in model order
+function conv(input, h, w, cin, layer) {                 // valid 3×3 convolution + ReLU, channels-last
+  const [kh, kw, , cout] = layer.shape, K = layer.kernel, B = layer.bias;
+  const oh = h - kh + 1, ow = w - kw + 1, out = new Float32Array(oh * ow * cout);
+  for (let y = 0; y < oh; y++) for (let x = 0; x < ow; x++) for (let o = 0; o < cout; o++) {
+    let s = B[o];
+    for (let dy = 0; dy < kh; dy++) for (let dx = 0; dx < kw; dx++) {
+      const base = ((y + dy) * w + (x + dx)) * cin;
+      for (let c = 0; c < cin; c++) s += input[base + c] * K[dy][dx][c][o];
+    }
+    out[(y * ow + x) * cout + o] = s > 0 ? s : 0;
+  }
+  return [out, oh, ow, cout];
+}
+function pool(input, h, w, c) {                           // 2×2 max pooling
+  const oh = Math.floor(h / 2), ow = Math.floor(w / 2), out = new Float32Array(oh * ow * c);
+  for (let y = 0; y < oh; y++) for (let x = 0; x < ow; x++) for (let k = 0; k < c; k++) {
+    let m = -Infinity;
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) m = Math.max(m, input[((2 * y + dy) * w + 2 * x + dx) * c + k]);
+    out[(y * ow + x) * c + k] = m;
+  }
+  return [out, oh, ow, c];
+}
+function dense(input, layer, relu) {
+  const K = layer.kernel, B = layer.bias, out = new Float32Array(B.length);
+  for (let o = 0; o < B.length; o++) {
+    let s = B[o];
+    for (let i = 0; i < input.length; i++) s += input[i] * K[i][o];
+    out[o] = relu ? Math.max(0, s) : s;
+  }
+  return out;
+}
+function predict(img28) {
+  let [a, h, w, c] = conv(img28, 28, 28, 1, W[0]);
+  [a, h, w, c] = pool(a, h, w, c);
+  [a, h, w, c] = conv(a, h, w, c, W[1]);
+  [a, h, w, c] = pool(a, h, w, c);
+  const z = dense(dense(a, W[2], true), W[3], false);
+  const m = Math.max(...z), e = z.map(v => Math.exp(v - m)), s = e.reduce((p, q) => p + q, 0);
+  return Array.from(e, v => v / s);
+}
+
+// ---------- drawing pad + MNIST-style preprocessing (crop → fit 20×20 → centre of mass at 14,14)
+const pad = document.getElementById("pad"), pctx = pad.getContext("2d");
+const mini = document.getElementById("mini"), mctx = mini.getContext("2d");
+function clearPad() {
+  pctx.fillStyle = "#000"; pctx.fillRect(0, 0, 280, 280);
+  mctx.fillStyle = "#000"; mctx.fillRect(0, 0, 28, 28);
+  document.getElementById("guess").textContent = "–";
+  document.getElementById("conf").textContent = "Draw something to start";
+  renderProbs(null);
+}
+function renderProbs(p) {
+  const top = p ? p.indexOf(Math.max(...p)) : -1;
+  document.getElementById("probs").innerHTML = Array.from({ length: 10 }, (_, d) => `
+    <div class="prob ${d === top ? "top" : ""}"><b>${d}</b>
+      <div class="track"><div class="fill" style="width:${p ? (p[d] * 100).toFixed(1) : 0}%"></div></div>
+      <span>${p ? (p[d] * 100).toFixed(1) + "%" : ""}</span></div>`).join("");
+}
+function toMnist() {
+  const src = pctx.getImageData(0, 0, 280, 280).data;
+  let x0 = 280, y0 = 280, x1 = -1, y1 = -1;
+  for (let y = 0; y < 280; y++) for (let x = 0; x < 280; x++) if (src[(y * 280 + x) * 4] > 30) {
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  if (x1 < 0) return null;
+  const bw = x1 - x0 + 1, bh = y1 - y0 + 1, scale = 20 / Math.max(bw, bh);
+  const tw = Math.max(1, Math.round(bw * scale)), th = Math.max(1, Math.round(bh * scale));
+  const tmp = document.createElement("canvas"); tmp.width = tmp.height = 28;
+  const t = tmp.getContext("2d"); t.fillStyle = "#000"; t.fillRect(0, 0, 28, 28);
+  t.imageSmoothingQuality = "high";
+  t.drawImage(pad, x0, y0, bw, bh, 0, 0, tw, th);
+  const d = t.getImageData(0, 0, tw, th).data;
+  let sx = 0, sy = 0, sm = 0;
+  for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) { const v = d[(y * tw + x) * 4]; sx += x * v; sy += y * v; sm += v; }
+  const ox = Math.round(14 - sx / sm), oy = Math.round(14 - sy / sm);
+  const img = new Float32Array(784), out = mctx.createImageData(28, 28);
+  for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
+    const X = x + ox, Y = y + oy;
+    if (X >= 0 && X < 28 && Y >= 0 && Y < 28) img[Y * 28 + X] = d[(y * tw + x) * 4] / 255;
+  }
+  for (let i = 0; i < 784; i++) { const v = img[i] * 255; out.data[i * 4] = out.data[i * 4 + 1] = out.data[i * 4 + 2] = v; out.data[i * 4 + 3] = 255; }
+  mctx.putImageData(out, 0, 0);
+  return img;
+}
+function run() {
+  const img = toMnist();
+  if (!img) return;
+  const p = predict(img), top = p.indexOf(Math.max(...p));
+  document.getElementById("guess").textContent = top;
+  document.getElementById("conf").textContent = `${(p[top] * 100).toFixed(1)}% confident`;
+  renderProbs(p);
+}
+let drawing = false, last = null, timer = null;
+function pos(e) { const r = pad.getBoundingClientRect(); return [(e.clientX - r.left) * 280 / r.width, (e.clientY - r.top) * 280 / r.height]; }
+pad.addEventListener("pointerdown", e => { drawing = true; last = pos(e); pad.setPointerCapture(e.pointerId); stroke(e); });
+pad.addEventListener("pointermove", e => { if (drawing) stroke(e); });
+pad.addEventListener("pointerup", () => { drawing = false; run(); });
+function stroke(e) {
+  const p = pos(e);
+  pctx.strokeStyle = "#fff"; pctx.lineWidth = 20; pctx.lineCap = "round"; pctx.lineJoin = "round";
+  pctx.beginPath(); pctx.moveTo(last[0], last[1]); pctx.lineTo(p[0], p[1]); pctx.stroke();
+  last = p;
+  clearTimeout(timer); timer = setTimeout(run, 120);
+}
+document.getElementById("clear").addEventListener("click", clearPad);
+clearPad();
+</script>
+</body>
+</html>
